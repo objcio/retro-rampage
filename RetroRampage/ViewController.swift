@@ -8,26 +8,38 @@
 
 import UIKit
 
+func loadMap() -> Tilemap {
+    let url = Bundle.main.url(forResource: "map", withExtension: "json")!
+    let data = try! Data(contentsOf: url)
+    return try! JSONDecoder().decode(Tilemap.self, from: data)
+}
+
 class ViewController: UIViewController {
     let imageView = UIImageView()
+    let panRecognizer = UIPanGestureRecognizer()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setUpImageView()
+        view.addGestureRecognizer(panRecognizer)
         
         let displayLink = CADisplayLink(target: self, selector: #selector(update))
         displayLink.add(to: .main, forMode: .common)
     }
     
-    var player: Player = Player(position: Vector(x: 4, y: 4), velocity: Vector(x: 1, y: 1))
+    var world = World(player: Player(position: Vector(x: 4, y: 4), velocity: Vector(x: 0, y: 0)), map: loadMap())
     var previousTime: Double = CACurrentMediaTime()
     
+    var joystickVector: Vector {
+        let translation = panRecognizer.translation(in: view)
+        return Vector(x: Double(translation.x), y: Double(translation.y)) / 40
+    }
+    
     @objc func update(_ displayLink: CADisplayLink) {
-        let x = Int(displayLink.timestamp) % 8
         var renderer = Renderer(width: 256, height: 256)
-        renderer.draw(player: player)
         let timestep = displayLink.timestamp - previousTime
-        player.update(timestep: timestep)
+        world.update(timestep: timestep, input: joystickVector)
+        renderer.draw(world: world)
         previousTime = displayLink.timestamp
         imageView.image = UIImage(bitmap: renderer.bitmap)
     }
@@ -38,7 +50,8 @@ struct Player {
     var velocity: Vector
     let radius: Double = 0.5
     
-    mutating func update(timestep: Double) {
+    mutating func update(timestep: Double, input: Vector) {
+        velocity = input
         position += velocity * timestep
         position.x.formTruncatingRemainder(dividingBy: 8) // todo
         position.y.formTruncatingRemainder(dividingBy: 8) // todo
@@ -53,56 +66,6 @@ struct Player {
 struct Vector {
     var x: Double
     var y: Double
-}
-
-extension Vector {
-    static func +(lhs: Vector, rhs: Vector) -> Vector {
-        return Vector(x: lhs.x + rhs.x, y: lhs.y + rhs.y)
-    }
-    
-    static func - (lhs: Vector, rhs: Vector) -> Vector {
-         return Vector(x: lhs.x - rhs.x, y: lhs.y - rhs.y)
-     }
-     
-     static func * (lhs: Vector, rhs: Double) -> Vector {
-         return Vector(x: lhs.x * rhs, y: lhs.y * rhs)
-     }
-     
-     static func / (lhs: Vector, rhs: Double) -> Vector {
-         return Vector(x: lhs.x / rhs, y: lhs.y / rhs)
-     }
-
-     static func * (lhs: Double, rhs: Vector) -> Vector {
-         return Vector(x: lhs * rhs.x, y: lhs * rhs.y)
-     }
-
-     static func / (lhs: Double, rhs: Vector) -> Vector {
-         return Vector(x: lhs / rhs.x, y: lhs / rhs.y)
-     }
-     
-     static func += (lhs: inout Vector, rhs: Vector) {
-         lhs.x += rhs.x
-         lhs.y += rhs.y
-     }
-
-     static func -= (lhs: inout Vector, rhs: Vector) {
-         lhs.x -= rhs.x
-         lhs.y -= rhs.y
-     }
-     
-     static func *= (lhs: inout Vector, rhs: Double) {
-         lhs.x *= rhs
-         lhs.y *= rhs
-     }
-
-     static func /= (lhs: inout Vector, rhs: Double) {
-         lhs.x /= rhs
-         lhs.y /= rhs
-     }
-     
-     static prefix func - (rhs: Vector) -> Vector {
-         return Vector(x: -rhs.x, y: -rhs.y)
-     }
 }
 
 struct Color {
@@ -135,14 +98,26 @@ struct Bitmap {
 struct Renderer {
     var bitmap: Bitmap
     init(width: Int, height: Int) {
-        bitmap = Bitmap(width: width, height: height, color: .white)
+        bitmap = Bitmap(width: width, height: height, color: .black)
     }
     
-    mutating func draw(player: Player) {
+    mutating func draw(world: World) {
         let worldWidth = 8.0
-        let worldHeight = 8.0
         let scale = Double(bitmap.width) / worldWidth
-        bitmap.fill(rect: player.rect * scale, color: .blue)
+        
+        for y in 0..<world.map.height {
+            for x in 0..<world.map.width {
+                guard world.map[x, y].isWall else { continue }
+                let min = Vector(x: Double(x) * scale, y: Double(y) * scale)
+                let rect = Rect(
+                    min: min,
+                    max: min + Vector(x: scale, y: scale)
+                )
+                bitmap.fill(rect: rect, color: .white)
+            }
+        }
+        
+        bitmap.fill(rect: world.player.rect * scale, color: .blue)
     }
 }
 
@@ -162,5 +137,39 @@ extension Bitmap {
                 self[x, y] = color
             }
         }
+    }
+}
+
+enum Tile: Int, Decodable {
+    case nothing = 0
+    case wall = 1
+    
+    var isWall: Bool {
+        switch self {
+        case .wall: return true
+        case .nothing: return false
+        }
+    }
+}
+
+struct Tilemap: Decodable {
+    let width: Int
+    let tiles: [Tile]
+    
+    subscript(x: Int, y: Int) -> Tile {
+        tiles[y*width + x]
+    }
+    
+    var height: Int {
+        tiles.count / width
+    }
+}
+
+struct World {
+    var player: Player
+    var map: Tilemap
+    
+    mutating func update(timestep: Double, input: Vector) {
+        player.update(timestep: timestep, input: input)
     }
 }

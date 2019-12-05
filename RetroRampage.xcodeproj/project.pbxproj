@@ -16,6 +16,7 @@
 		839944DC23990AB100577E55 /* RetroRampageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 839944DB23990AB100577E55 /* RetroRampageTests.swift */; };
 		839944E723990AB100577E55 /* RetroRampageUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 839944E623990AB100577E55 /* RetroRampageUITests.swift */; };
 		839944F523990DA700577E55 /* Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 839944F423990DA700577E55 /* Helpers.swift */; };
+		839944F7239944B500577E55 /* map.json in Resources */ = {isa = PBXBuildFile; fileRef = 839944F6239944B500577E55 /* map.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +52,7 @@
 		839944E623990AB100577E55 /* RetroRampageUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetroRampageUITests.swift; sourceTree = "<group>"; };
 		839944E823990AB100577E55 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		839944F423990DA700577E55 /* Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helpers.swift; sourceTree = "<group>"; };
+		839944F6239944B500577E55 /* map.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = map.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,6 +106,7 @@
 				839944C423990AB000577E55 /* AppDelegate.swift */,
 				839944C623990AB000577E55 /* SceneDelegate.swift */,
 				839944C823990AB000577E55 /* ViewController.swift */,
+				839944F6239944B500577E55 /* map.json */,
 				839944F423990DA700577E55 /* Helpers.swift */,
 				839944CA23990AB000577E55 /* Main.storyboard */,
 				839944CD23990AB100577E55 /* Assets.xcassets */,
@@ -237,6 +240,7 @@
 			files = (
 				839944D123990AB100577E55 /* LaunchScreen.storyboard in Resources */,
 				839944CE23990AB100577E55 /* Assets.xcassets in Resources */,
+				839944F7239944B500577E55 /* map.json in Resources */,
 				839944CC23990AB000577E55 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
