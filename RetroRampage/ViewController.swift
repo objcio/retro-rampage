@@ -14,6 +14,8 @@ func loadMap() -> Tilemap {
     return try! JSONDecoder().decode(Tilemap.self, from: data)
 }
 
+let joystickRadius = 40.0
+
 class ViewController: UIViewController {
     let imageView = UIImageView()
     let panRecognizer = UIPanGestureRecognizer()
@@ -27,12 +29,15 @@ class ViewController: UIViewController {
         displayLink.add(to: .main, forMode: .common)
     }
     
-    var world = World(player: Player(position: Vector(x: 4, y: 4), velocity: Vector(x: 0, y: 0)), map: loadMap())
+    var world = World(player: Player(position: Vector(x: 2.5, y: 2.5), velocity: Vector(x: 0, y: 0)), map: loadMap())
     var previousTime: Double = CACurrentMediaTime()
     
     var joystickVector: Vector {
         let translation = panRecognizer.translation(in: view)
-        return Vector(x: Double(translation.x), y: Double(translation.y)) / 40
+        let vector = Vector(x: Double(translation.x), y: Double(translation.y))
+        let result = vector / max(joystickRadius, vector.length)
+        panRecognizer.setTranslation(CGPoint(x: result.x * joystickRadius, y: result.y * joystickRadius), in: view)
+        return result
     }
     
     @objc func update(_ displayLink: CADisplayLink) {
@@ -48,10 +53,11 @@ class ViewController: UIViewController {
 struct Player {
     var position: Vector
     var velocity: Vector
-    let radius: Double = 0.5
+    let radius: Double = 0.25
+    let speed: Double = 2
     
     mutating func update(timestep: Double, input: Vector) {
-        velocity = input
+        velocity = input * speed
         position += velocity * timestep
         position.x.formTruncatingRemainder(dividingBy: 8) // todo
         position.y.formTruncatingRemainder(dividingBy: 8) // todo
@@ -60,6 +66,41 @@ struct Player {
     var rect: Rect {
         let half = Vector(x: radius, y: radius)
         return Rect(min: position - half, max: position + half)
+    }
+    
+    func intersection(with map: Tilemap) -> Vector? {
+        let playerRect = self.rect
+        let minX = Int(playerRect.min.x)
+        let minY = Int(playerRect.min.y)
+        let maxX = Int(playerRect.max.x)
+        let maxY = Int(playerRect.max.y)
+        var largestIntersection: Vector? = nil
+        for y in minY...maxY {
+            for x in minX...maxX {
+                let min = Vector(x: Double(x), y: Double(y))
+                let wallRect = Rect(min: min, max: min + Vector(x: 1, y: 1))
+                if map[x,y].isWall, let intersection = wallRect.intersection(with: playerRect) {
+                    if intersection.length > (largestIntersection?.length ?? 0) {
+                        largestIntersection = intersection
+                    }
+                }
+            }
+        }
+        return largestIntersection
+    }
+}
+
+extension Rect {
+    func intersection(with other: Rect) -> Vector? {
+        let left = Vector(x: max.x - other.min.x, y: 0)
+        if left.x <= 0 { return nil }
+        let right = Vector(x: min.x - other.max.x, y: 0)
+        if right.x >= 0 { return nil}
+        let top = Vector(x: 0, y: max.y - other.min.y)
+        if top.y <= 0 { return nil }
+        let bottom = Vector(x: 0, y: min.y - other.max.y)
+        if bottom.y >= 0 { return nil }
+        return [left, right, top, bottom].sorted(by: { $0.length < $1.length }).first
     }
 }
 
@@ -171,5 +212,8 @@ struct World {
     
     mutating func update(timestep: Double, input: Vector) {
         player.update(timestep: timestep, input: input)
+        while let intersection = player.intersection(with: map) {
+            player.position += intersection
+        }
     }
 }
