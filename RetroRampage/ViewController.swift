@@ -46,12 +46,19 @@ class ViewController: UIViewController {
     }
     
     @objc func update(_ displayLink: CADisplayLink) {
-        var renderer = Renderer3D(width: 256, height: 256)
+        var renderer = Renderer3D(width: Int(view.frame.size.width), height: Int(view.frame.size.height))
         let timestep = displayLink.timestamp - previousTime
         world.update(timestep: timestep, input: joystickVector)
         renderer.draw(world: world)
         previousTime = displayLink.timestamp
         imageView.image = UIImage(bitmap: renderer.bitmap)
+    }
+}
+
+extension Vector {
+    func rotate(by radians: Double) -> Vector {
+        Vector(x: x * cos(radians) + y * -sin(radians),
+               y: x * sin(radians) + y * cos(radians))
     }
 }
 
@@ -61,12 +68,11 @@ struct Player {
     var direction: Vector
     let radius: Double = 0.25
     let speed: Double = 2
+    let turningSpeed = 2.0
     
     mutating func update(timestep: Double, input: Vector) {
-        if input.length > 0 {
-            direction = input / input.length
-        }
-        velocity = input * speed
+        direction = direction.rotated(by: input.x * turningSpeed * timestep)
+        velocity = -input.y * direction * speed
         position += velocity * timestep
         position.x.formTruncatingRemainder(dividingBy: 8) // todo
         position.y.formTruncatingRemainder(dividingBy: 8) // todo
@@ -201,6 +207,15 @@ struct Renderer {
     }
 }
 
+extension Vector {
+    func rotated(by radians: Double) -> Vector {
+        return Vector(
+            x: x * cos(radians) + y * -sin(radians),
+            y: x * sin(radians) + y * cos(radians)
+        )
+    }
+}
+
 struct Renderer3D {
     var bitmap: Bitmap
     init(width: Int, height: Int) {
@@ -209,7 +224,7 @@ struct Renderer3D {
     
     mutating func draw(world: World) {
         let focalLength = 1.0
-        let planeWidth = 1.0
+        let planeWidth = Double(bitmap.width)/Double(bitmap.height)
         let viewCenter = world.player.position + world.player.direction * focalLength
         let viewStart = viewCenter - world.player.direction.orthogonal * planeWidth / 2
         
@@ -225,12 +240,15 @@ struct Renderer3D {
             let wallIntersection = world.map.hitTest(ray)
             position += step
             
+            
             let wallHeight = 1.0
             let wallDistance = wallIntersection - world.player.position
-            let height = focalLength * wallHeight / wallDistance.length * Double(bitmap.height)
+            let perpendicularDistance = wallDistance.length / end.length
+            let height = focalLength * wallHeight / perpendicularDistance * Double(bitmap.height)
             let wallStart = Vector(x: Double(column), y: Double(bitmap.height) / 2 - height / 2)
             let wallEnd = Vector(x: Double(column), y: Double(bitmap.height) / 2 + height / 2)
-            bitmap.drawLine(from: wallStart, to: wallEnd, color: .white)
+            let wallColor = wallIntersection.x.rounded() == wallIntersection.x ? Color.white : .gray
+            bitmap.drawLine(from: wallStart, to: wallEnd, color: wallColor)
         }
     }
 }
