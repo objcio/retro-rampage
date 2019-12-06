@@ -46,7 +46,7 @@ class ViewController: UIViewController {
     }
     
     @objc func update(_ displayLink: CADisplayLink) {
-        var renderer = Renderer(width: 256, height: 256)
+        var renderer = Renderer3D(width: 256, height: 256)
         let timestep = displayLink.timestamp - previousTime
         world.update(timestep: timestep, input: joystickVector)
         renderer.draw(world: world)
@@ -121,6 +121,10 @@ struct Ray {
 struct Vector {
     var x: Double
     var y: Double
+    
+    var orthogonal: Vector {
+        Vector(x: -y, y: x)
+    }
 }
 
 struct Color {
@@ -173,8 +177,61 @@ struct Renderer {
         }
         
         bitmap.fill(rect: world.player.rect * scale, color: .blue)
-        let end = world.map.hitTest(Ray(origin: world.player.position, direction: world.player.direction)) * scale
-        bitmap.drawLine(from: world.player.position * scale, to: end, color: .green)
+        
+        let focalLength = 1.0
+        let planeWidth = 1.0
+        let viewCenter = world.player.position + world.player.direction * focalLength
+        let viewStart = viewCenter - world.player.direction.orthogonal * planeWidth / 2
+        let viewEnd = viewCenter + world.player.direction.orthogonal * planeWidth / 2
+        bitmap.drawLine(from: viewStart * scale, to: viewEnd * scale, color: .red)
+        
+        var position = viewStart
+        let columns = 10
+        let step = world.player.direction.orthogonal * planeWidth / Double(columns)
+        for _ in 0..<columns {
+            let end = position - world.player.position
+            let ray = Ray(
+                origin: world.player.position,
+                direction: end / end.length
+            )
+            let lineEnd = world.map.hitTest(ray)
+            bitmap.drawLine(from: world.player.position * scale, to: lineEnd * scale, color: .green)
+            position += step
+        }
+    }
+}
+
+struct Renderer3D {
+    var bitmap: Bitmap
+    init(width: Int, height: Int) {
+        bitmap = Bitmap(width: width, height: height, color: .black)
+    }
+    
+    mutating func draw(world: World) {
+        let focalLength = 1.0
+        let planeWidth = 1.0
+        let viewCenter = world.player.position + world.player.direction * focalLength
+        let viewStart = viewCenter - world.player.direction.orthogonal * planeWidth / 2
+        
+        var position = viewStart
+        let columns = bitmap.width
+        let step = world.player.direction.orthogonal * planeWidth / Double(columns)
+        for column in 0..<columns {
+            let end = position - world.player.position
+            let ray = Ray(
+                origin: world.player.position,
+                direction: end / end.length
+            )
+            let wallIntersection = world.map.hitTest(ray)
+            position += step
+            
+            let wallHeight = 1.0
+            let wallDistance = wallIntersection - world.player.position
+            let height = focalLength * wallHeight / wallDistance.length * Double(bitmap.height)
+            let wallStart = Vector(x: Double(column), y: Double(bitmap.height) / 2 - height / 2)
+            let wallEnd = Vector(x: Double(column), y: Double(bitmap.height) / 2 + height / 2)
+            bitmap.drawLine(from: wallStart, to: wallEnd, color: .white)
+        }
     }
 }
 
