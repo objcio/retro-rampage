@@ -33,11 +33,16 @@ class ViewController: UIViewController {
     var previousTime: Double = CACurrentMediaTime()
     
     var joystickVector: Vector {
-        let translation = panRecognizer.translation(in: view)
-        let vector = Vector(x: Double(translation.x), y: Double(translation.y))
-        let result = vector / max(joystickRadius, vector.length)
-        panRecognizer.setTranslation(CGPoint(x: result.x * joystickRadius, y: result.y * joystickRadius), in: view)
-        return result
+        switch panRecognizer.state {
+        case .began, .changed:
+            let translation = panRecognizer.translation(in: view)
+            let vector = Vector(x: Double(translation.x), y: Double(translation.y))
+            let result = vector / max(joystickRadius, vector.length)
+            panRecognizer.setTranslation(CGPoint(x: result.x * joystickRadius, y: result.y * joystickRadius), in: view)
+            return result
+        default:
+            return Vector(x: 0, y: 0)
+        }
     }
     
     @objc func update(_ displayLink: CADisplayLink) {
