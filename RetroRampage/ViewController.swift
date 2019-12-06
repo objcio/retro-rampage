@@ -113,6 +113,11 @@ extension Rect {
     }
 }
 
+struct Ray {
+    var origin: Vector
+    var direction: Vector // normalized
+}
+
 struct Vector {
     var x: Double
     var y: Double
@@ -168,7 +173,7 @@ struct Renderer {
         }
         
         bitmap.fill(rect: world.player.rect * scale, color: .blue)
-        let end = (world.player.position + world.player.direction * 100) * scale
+        let end = world.map.hitTest(Ray(origin: world.player.position, direction: world.player.direction)) * scale
         bitmap.drawLine(from: world.player.position * scale, to: end, color: .green)
     }
 }
@@ -234,6 +239,47 @@ struct Tilemap: Decodable {
     
     var height: Int {
         tiles.count / width
+    }
+}
+
+extension Tilemap {
+    func hitTest(_ ray: Ray) -> Vector {
+        var position = ray.origin
+        repeat {
+            var edgeDistanceX: Double
+            var edgeDistanceY: Double
+            
+            if ray.direction.x > 0 {
+                edgeDistanceX = position.x.rounded(.down) + 1 - position.x
+            } else {
+                edgeDistanceX = position.x.rounded(.up) - 1 - position.x
+            }
+            if ray.direction.y > 0 {
+                edgeDistanceY = position.y.rounded(.down) + 1 - position.y
+            } else {
+                edgeDistanceY = position.y.rounded(.up) - 1 - position.y
+            }
+            
+            let slope = ray.direction.x / ray.direction.y
+            let horizontalDelta = Vector(x: edgeDistanceX, y: edgeDistanceX / slope)
+            let verticalDelta = Vector(x: edgeDistanceY * slope, y: edgeDistanceY)
+            if horizontalDelta.length < verticalDelta.length {
+                position += horizontalDelta
+            } else {
+                position += verticalDelta
+            }
+        } while !self.tile(at: position, direction: ray.direction).isWall
+        return position
+    }
+    
+    func tile(at position: Vector, direction: Vector) -> Tile {
+        let x = Int(position.x)
+        let y = Int(position.y)
+        if position.x.rounded() == position.x {
+            return self[direction.x > 0 ? x : x - 1, y]
+        } else {
+            return self[x, direction.y > 0 ? y : y - 1]
+        }
     }
 }
 
