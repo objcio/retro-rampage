@@ -29,7 +29,7 @@ class ViewController: UIViewController {
         displayLink.add(to: .main, forMode: .common)
     }
     
-    var world = World(player: Player(position: Vector(x: 2.5, y: 2.5), velocity: Vector(x: 0, y: 0)), map: loadMap())
+    var world = World(player: Player(position: Vector(x: 2.5, y: 2.5), velocity: Vector(x: 0, y: 0), direction: Vector(x: 1, y: 0)), map: loadMap())
     var previousTime: Double = CACurrentMediaTime()
     
     var joystickVector: Vector {
@@ -58,10 +58,14 @@ class ViewController: UIViewController {
 struct Player {
     var position: Vector
     var velocity: Vector
+    var direction: Vector
     let radius: Double = 0.25
     let speed: Double = 2
     
     mutating func update(timestep: Double, input: Vector) {
+        if input.length > 0 {
+            direction = input / input.length
+        }
         velocity = input * speed
         position += velocity * timestep
         position.x.formTruncatingRemainder(dividingBy: 8) // todo
@@ -164,6 +168,8 @@ struct Renderer {
         }
         
         bitmap.fill(rect: world.player.rect * scale, color: .blue)
+        let end = (world.player.position + world.player.direction * 100) * scale
+        bitmap.drawLine(from: world.player.position * scale, to: end, color: .green)
     }
 }
 
@@ -182,6 +188,26 @@ extension Bitmap {
             for x in Int(rect.min.x)..<Int(rect.max.x) {
                 self[x, y] = color
             }
+        }
+    }
+    
+    mutating func drawLine(from: Vector, to: Vector, color: Color) {
+        let difference = to - from
+        let stepCount: Int
+        let step: Vector
+        if abs(difference.x) > abs(difference.y) {
+            stepCount = Int(abs(difference.x).rounded(.up))
+            let sign: Double = difference.x > 0 ? 1 : -1
+            step = Vector(x: 1, y: difference.y/difference.x) * sign
+        } else {
+            stepCount = Int(abs(difference.y).rounded(.up))
+            let sign: Double = difference.y > 0 ? 1 : -1
+            step = Vector(x: difference.x/difference.y, y: 1) * sign
+        }
+        var position = from
+        for _ in 0..<stepCount {
+            self[Int(position.x), Int(position.y)] = color
+            position += step
         }
     }
 }
